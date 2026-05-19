@@ -11,11 +11,9 @@ All dependencies are handled locally or are automatically installed via CMake.
 
 # Limitations:
 
-1. Single Scattering
-
-2. Atmospheric light only considers sun and moon.
-
-3. Cloud lighting only considers sun.
+- Single Scattering
+- Atmospheric light only considers sun and moon.
+- Cloud lighting only considers sun.
 
 # References:
 Meeus, Jean: Astronomical Algorithms
