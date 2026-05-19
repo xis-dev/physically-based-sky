@@ -1,7 +1,7 @@
 Real-time physically based atmosphere and celestial rendering with accurate ephemeris positions for the Sun and Moon.
 
 
-#Dependencies:
+# Dependencies:
 GLAD
 GLFW
 GLM 
@@ -9,7 +9,7 @@ IMGUI
 
 All dependencies are handled locally or are automatically installed via CMake.
 
-#References:
+# References:
 Meeus, Jean: Astronomical Algorithms
 Willmann-Bell; Hardcover (1st ed. 1991), ISBN: 0943396352
 
