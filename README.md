@@ -15,10 +15,14 @@ All dependencies are handled locally or are automatically installed via CMake.
 - Atmospheric light only considers sun and moon.
 - Cloud lighting only considers sun.
 
-# Overview & Implementation:
-1. Atmosphere:
+# Overview:
+1. Participating media:
     - At some point in a volume, the light received by an observer goes through Extinction events ( Scattering & Absorption), changing how it is perceived, this perceived light at the point is further "changed" by a special in-scattering event, the case where light is scattered back into the view of the observer, the probability of this is gained from the Phase Function.
+
+# Implementation:
+1. Atmosphere: From the viewing direction, we gain the intersection point at the edge of the atmosphere, 
                   <img width="432" height="432" alt="Earth_Atmos" src="https://github.com/user-attachments/assets/a83b7c3c-7a26-42cb-b213-0c4d1210205e" />
+
 
 
 # References:
