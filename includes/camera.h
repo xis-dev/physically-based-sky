@@ -40,7 +40,8 @@ public:
 
 	glm::mat4 getViewMat() const
 	{
-		return glm::lookAt(position, position + direction, up);
+
+		return glm::lookAt(position, position + glm::normalize(direction), glm::normalize(up));
 	}
 
 	glm::mat4 getProjectionMat() const

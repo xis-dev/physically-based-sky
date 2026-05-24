@@ -3,15 +3,20 @@
 
 #include "shader.h"
 #include "camera.h"
+#include "PathResolver.h"
 
 #include <iostream>
 #include <numbers>
+#include <format>
 
 #include "gtc/type_ptr.hpp"
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+
+#include "stb_image.h"
+#include "stb_image_resize2.h"
 
 #define SCR_WIDTH 1600
 #define SCR_HEIGHT 900
@@ -42,6 +47,7 @@ constexpr unsigned indices[]
 	2, 3, 0
 };
 
+
 double lastXPos{};
 double lastYPos{};
 
@@ -50,26 +56,40 @@ double yOffset{};
 
 bool firstMouseInput{true};
 bool shiftLock{};
-unsigned vao, vbo, ebo;
-float sunAngle{160.0f};
-float moonAngle{ 50.0f };
-float sunScale{ 10.0f };
-bool limbDarken{ true };
-float moonIntensity{ 888888.0f };
-float moonRotAngle{ 0.0f };
 
-bool animateSun{ true };
+unsigned vao, vbo, ebo;
+
+int frameCount{};
+
+float moonIntensity{ 9999.0f };
+
 float animSpeed{ 2.0f };
 
 float totalSimHours{};
 
+float phaseBlend{.6f};
+
 float solarTime{ 0.0f };
-int dayOfTheYear{ 50};
-glm::vec2 latLong{ 40.0f, -3.7f };
-glm::vec2 sunAltAzi{0.0f, 270.0f};
+
+const float earthRad = (6360e3 + 1.0f);
+glm::vec2 latLong{ 39.7f, 8.82f };
+glm::vec2 sunAltAzi{20.0f, 270.0f};
 glm::vec2 moonAltAzi{};
 
-glm::vec3 date{ 21, 6, 2026 };
+bool simulate{};
+bool useEphemerisPos{};
+
+
+double jdStart{};
+
+bool clouds{true};
+glm::vec<3, int> startDate{28, 4, 2026};
+glm::vec<3, int> currentDate{};
+int dayOfTheYear{179};
+
+
+glm::vec3 sunDir{};
+glm::vec3 moonDir{};
 Camera cam;
 
 double julianDay(double d, int m, int y)
@@ -80,9 +100,9 @@ double julianDay(double d, int m, int y)
 		y = y - 1;
 	}
 
-	// Using gregorian calender, B = 0 if julian 
-	const int A = floor(y / 100.0f);
-	const int B = 2 - A + floor(A / 4.0f);
+	// Using gregorian calender, B = 0 if julian
+	const int A = floor(static_cast<float>(y) / 100.0f);
+	const int B = 2 - A + (int)floor(static_cast<float>(A) / 4.0f);
 	//return (int)(365.25 * y) + (int)(30.6001 * (m + 1)) - 15 + 1720996.5f + d + time / 24.0f;
 
 	return floor((365.25 * (y + 4716))) + floor((30.6001 * (m + 1))) + d + B - 1524.5;
@@ -101,34 +121,69 @@ bool isLeap(int y)
 	return (y % 4 == 0 && y % 100 != 0) || (y % 400 == 0);
 }
 
-void doyToDate(int& doy, int year, int& day, int& month, int& outYear)
+
+void doyToDate(int& doy, int year, int& outDay, int& outMonth, int& outYear)
 {
 	outYear = year;
 
 	while (true)
 	{
-		int daysInYear = isLeap(outYear) ? 366 : 365;
+		int daysInYear = isLeap(year) ? 366 : 365;
 		if (doy <= daysInYear) break;
 		doy -= daysInYear;
 		outYear++;
 	}
 
 	int daysPerMonth[] = { 31,28,31,30,31,30,31,31,30,31,30,31 };
-	if (isLeap(outYear)) daysPerMonth[1] = 29;
+	if (isLeap(year)) daysPerMonth[1] = 29;
 
-	month = 0;
-	int fulldays = doy;
-	while (fulldays > daysPerMonth[month])
+	outMonth = 0;
+	int totalDays = doy;
+	while (totalDays > daysPerMonth[outMonth])
 	{
-		fulldays -= daysPerMonth[month];
-		month++;
+		totalDays -= daysPerMonth[outMonth];
+		outMonth++;
 	}
 
-	day = fulldays;
-	month += 1;
+	outDay = totalDays;
+	outMonth += 1;
 }
 
+void wrapDay(int& day, int& month, int& year)
+{
+	while (month > 12)
+	{
+		month -= 12;
+		++year;
+	}
 
+	int daysPerMonth[] = { 31,28,31,30,31,30,31,31,30,31,30,31 };
+	if (isLeap(year)) daysPerMonth[1] = 29;
+
+	while (day > daysPerMonth[month - 1])
+	{
+		day -= daysPerMonth[month - 1];
+		++month;
+		if (month > 12)
+		{
+			month -= 12;
+			++year;
+		}
+	}
+
+}
+
+void dateToDoy(int day, int month, int year, int& outDoy)
+{
+	wrapDay(day, month, year);
+
+	outDoy = day;
+	int daysPerMonth[] = { 31,28,31,30,31,30,31,31,30,31,30,31 };
+	for (int i = 0; i < (month - 1); ++i)
+	{
+		outDoy += daysPerMonth[i];
+	}
+}
 double wrap(double a, double min, double max)
 {
 	const double range = max - min;
@@ -137,10 +192,6 @@ double wrap(double a, double min, double max)
 	return a + min;
 }
 
-double wrap360(double deg) { return wrap(deg, 0.0, 360.0); }
-double wrap180(double deg) { return wrap(deg, -180.0, 180.0); }
-double wrap2pi(double rad) { return wrap(rad, 0.0, 2.0 * PI); }
-double wrapPi(double rad) { return wrap(rad, -PI, PI); }
 
 
 glm::vec3 moonDirectionFromTime(double jd, float degLatitude, float degLongitude)
@@ -185,6 +236,7 @@ glm::vec3 moonDirectionFromTime(double jd, float degLatitude, float degLongitude
 	//double A_2 = 53.09 + 479264.290 * t;
 	//double A_3 = 313.45 + 481266.484 * t;
 
+	// Periodic terms of longitude
 	double sumL = 6.289 * sin(glm::radians(Mp)) * E
 				+ 1.274 * sin(glm::radians(2 * D + (-Mp))) * E
 				+ 0.658 * sin(glm::radians(2 * D))
@@ -192,6 +244,7 @@ glm::vec3 moonDirectionFromTime(double jd, float degLatitude, float degLongitude
 				- 0.185 * sin(glm::radians(M)) * E
 				- 0.114 * sin(glm::radians(2 * F));
 
+	// Periodic terms of latitude
 	double sumB = 5.128 * sin(glm::radians(F))
 				+ 0.280 * sin(glm::radians(Mp + F)) * E
 				+ 0.277 * sin(glm::radians(Mp - F)) * E
@@ -203,16 +256,15 @@ glm::vec3 moonDirectionFromTime(double jd, float degLatitude, float degLongitude
 	// Ecliptic latitude
 	double beta = glm::radians(sumB);
 
-
+	// Obliquity of eliptic
 	double eps = glm::radians(23.0 + 26.0 / 60.0 + 21.448 / 3600.0 - (46.8150 * t + 0.00059 * t * t - 0.001813 * t * t * t) / 3600.0f);
 
 	double x = cos(beta) * cos(lambda);
 	double y = cos(eps) * cos(beta) * sin(lambda) - sin(eps) * sin(beta);
 	double z = sin(eps) * cos(beta) * sin(lambda) + cos(eps) * sin(beta);
-	double r = sqrt(1 - (z * z));
 
 	double ra = atan2(y, x);
-	double dec = atan2(z, sqrt(x * x + y * y)); 
+	double dec = atan2(z, sqrt(x * x + y * y));
 
 	ra = wrap(ra, 0.0, TWO_PI);
 
@@ -221,74 +273,126 @@ glm::vec3 moonDirectionFromTime(double jd, float degLatitude, float degLongitude
 		+ 0.000387933 * t * t
 		- (t * t * t) / 38710000.0;
 
-	theta0_deg = wrap360(theta0_deg);
+	theta0_deg = wrap(theta0_deg, 0.0, 360.0);
 	double theta0 = glm::radians(theta0_deg);
-	double theta = theta0 + longitude;  // longitude already in radians
-	double hourAngle = wrapPi(theta - ra);
+	double theta = theta0 + longitude;
+	double hourAngle = wrap(theta - ra, -PI, PI);
 
 
 
-	float azimuth = (float)atan2((sin(hourAngle)), (sin(lat) * cos(hourAngle) - tan(dec) * cos(lat)));
+	double azimuth = (atan2((sin(hourAngle)), (sin(lat) * cos(hourAngle) - tan(dec) * cos(lat))));
 
 	double sinAlt = sin(lat) * sin(dec) + cos(lat) * cos(dec) * cos(hourAngle);
 
 	sinAlt = glm::clamp(sinAlt, -1.0, 1.0);
-	float altitude = (float)asin(sinAlt);
-	azimuth = wrap(azimuth, 0.0, TWO_PI);
-	moonAltAzi.x = glm::degrees(altitude);
-	moonAltAzi.y = glm::degrees(azimuth);
+	double altitude = (asin(sinAlt));
+	altitude = wrap(altitude, -PI + 0.1, PI - 0.1);
 
-	glm::vec3 moonDir = glm::vec3(glm::cos(altitude) * glm::sin(azimuth),
+	azimuth = wrap(azimuth, 0.0, TWO_PI);
+	moonAltAzi.x = static_cast<float>(glm::degrees(altitude));
+	moonAltAzi.y = static_cast<float>(glm::degrees(azimuth));
+
+	auto dir = glm::vec3(glm::cos(altitude) * glm::sin(azimuth),
 		glm::sin(altitude),
 		glm::cos(altitude) * glm::cos(azimuth));
 
 
 
-	if (fabs(moonDir.x) < 1e-12f) moonDir.x = 0.0f;
-	if (fabs(moonDir.y) < 1e-12f) moonDir.y = 0.0f;
-	if (fabs(moonDir.z) < 1e-12f) moonDir.z = 0.0f;
+	if (fabs(dir.x) < 1e-12f) dir.x = 0.0f;
+	if (fabs(dir.y) < 1e-12f) dir.y = 0.0f;
+	if (fabs(dir.z) < 1e-12f) dir.z = 0.0f;
 
 
-	return glm::normalize(moonDir);
+	return glm::normalize(dir);
 }
 
 
 glm::vec3 sunDirectionFromTime(float time, int day, float degLatitude)
 {
 
-	float lat = glm::radians(degLatitude);
-	float hourAngle = glm::radians(15.0f * (time - 12.0f));
-	
+	const float lat = glm::radians(degLatitude);
+	const float hourAngle = glm::radians(15.0f * (time - 12.0f));
+
 	// Day angle
 	const float g = 2 * PI * (float(day - 1) / 365.0f);
 
-	// declination, spencer's formula
-	double dec = 0.006918 - 0.399912 * cos(g) + 0.070257 * sin(g) - 0.006758 * cos(2 * g) + 0.000907 * sin(2 * g) - 0.002697 * cos(3 * g) + 0.001480 * sin(3 * g);
+	const double dec = 0.006918 - 0.399912 * cos(g) + 0.070257 * sin(g) - 0.006758 * cos(2 * g) + 0.000907 * sin(2 * g) - 0.002697 * cos(3 * g) + 0.001480 * sin(3 * g);
 
 
 	double sinAlt = sin(lat) * sin(dec) + cos(lat) * cos(dec) * cos(hourAngle);
 	sinAlt = glm::clamp(sinAlt, -1.0, 1.0);
-	float altitude = (float)asin(sinAlt);
+	double altitude = asin(sinAlt);
+	altitude = wrap(altitude, -PI + 0.1, PI - 0.1);
 
-	float azimuth = (float)atan2((sin(hourAngle)), (sin(lat) * cos(hourAngle) - tan(dec) * cos(lat)));
+	double azimuth = atan2((sin(hourAngle)), (sin(lat) * cos(hourAngle) - tan(dec) * cos(lat)));
 
 	azimuth = wrap(azimuth, 0.0f, TWO_PI);
-	sunAltAzi.x = glm::degrees(altitude);
-	sunAltAzi.y = glm::degrees(azimuth);
+	sunAltAzi.x = static_cast<float>(glm::degrees(altitude));
+	sunAltAzi.y = static_cast<float>(glm::degrees(azimuth));
 
 
 
-	glm::vec3 sunDir = glm::vec3(glm::cos(altitude) * glm::sin(azimuth),
+	auto dir = glm::vec3(glm::cos(altitude) * glm::sin(azimuth),
 		glm::sin(altitude),
 		glm::cos(altitude) * glm::cos(azimuth));
 
-	if (fabs(sunDir.x) < 1e-12f) sunDir.x = 0.0f;
-	if (fabs(sunDir.y) < 1e-12f) sunDir.y = 0.0f;
-	if (fabs(sunDir.z) < 1e-12f) sunDir.z = 0.0f;
+	if (fabs(dir.x) < 1e-12f) dir.x = 0.0f;
+	if (fabs(dir.y) < 1e-12f) dir.y = 0.0f;
+	if (fabs(dir.z) < 1e-12f) dir.z = 0.0f;
 
 
-	return glm::normalize(sunDir);
+	return glm::normalize(dir);
 
+}
+
+unsigned initTexture(const std::string& loc)
+{
+	unsigned id{};
+	glGenTextures(1, &id);
+	glBindTexture(GL_TEXTURE_2D, id);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	int width, height, nrColCh;
+
+	unsigned char* data = stbi_load(loc.c_str(), &width, &height, &nrColCh, 0);
+
+	if (!data)
+	{
+		std::cout << "Stb failed to load img at: " << loc << "\n";
+	}
+	GLenum imageFormat{};
+
+	switch (nrColCh)
+	{
+	case 1:
+		imageFormat = GL_R;
+		break;
+
+	case 2:
+		imageFormat = GL_RG;
+		break;
+
+	case 4:
+		imageFormat = GL_RGBA;
+		break;
+
+		default:
+			imageFormat = GL_RGB;
+			break;
+	}
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, imageFormat, GL_UNSIGNED_BYTE, data);
+
+	stbi_image_free(data);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	return id;
 }
 
 int main()
@@ -319,6 +423,8 @@ int main()
 		glfwTerminate();
 		return -1;
 	}
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_BLEND);
 
 	glGenBuffers(1, &vbo);
 	glGenBuffers(1, &ebo);
@@ -335,7 +441,28 @@ int main()
 	glEnableVertexAttribArray(0);
 
 	glBindVertexArray(0);
-	
+
+
+
+
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	{
+		std::cout << "Incomplete framebuffer. \n";
+		glfwTerminate();
+		glDeleteBuffers(1, &vao);
+		glDeleteBuffers(1, &vbo);
+		glDeleteBuffers(1, &ebo);
+		return -1;
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+
+
+
+
 	cam.position = glm::vec3(0.0f, 6360e3 + 1, 0.0f);
 	cam.direction = glm::vec3(-1.0f, 0.0f, 0.0f);
 	cam.aspect = (float)SCR_WIDTH / SCR_HEIGHT;
@@ -346,10 +473,15 @@ int main()
 	baseShader.setUniformi("u_ScrHeight", SCR_HEIGHT);
 	baseShader.setUniformBlock("SharedInfo", 0);
 
+
 	imguiInit(window);
-	glm::mat4 model{ 1.0f };
-	model = glm::rotate(model, glm::radians(float(50.0f * std::sin(glfwGetTime()))), glm::vec3(0.0f, 0.0f, 1.0f));
 	float lastFrameTime{};
+
+
+
+	jdStart = julianDay(startDate.x, startDate.y, startDate.z);
+	dateToDoy(startDate.x, startDate.y, startDate.z, dayOfTheYear);
+	currentDate = startDate;
 	while (!glfwWindowShouldClose(window))
 	{
 
@@ -361,33 +493,66 @@ int main()
 
 	//mouseInput(cam, 0.05f, xOffset, yOffset);
 
-		totalSimHours += animSpeed * deltaTime;
 
-		solarTime = fmod(totalSimHours, 24.0f);
+		totalSimHours += animSpeed * deltaTime;
+		double jd{};
+		if (simulate)
+		{
+			startDate = currentDate;
+			doyToDate(dayOfTheYear, currentDate.z, currentDate.x, currentDate.y, currentDate.z);
+			solarTime += animSpeed * deltaTime;
+			if (solarTime > 24.0f)
+			{
+				solarTime = fmod(totalSimHours, 24.0f);
+				++dayOfTheYear;
+			}
+			 jd = jdStart + totalSimHours / 24.0;
+
+			sunDir = sunDirectionFromTime(solarTime, dayOfTheYear, latLong.x);
+			moonDir = moonDirectionFromTime(jd, latLong.x, latLong.y);
+
+		}
+		else if (!simulate && useEphemerisPos)
+		{
+			jd = julianDay(currentDate.x, currentDate.y, currentDate.z) + solarTime/24.0f;
+
+			sunDir = sunDirectionFromTime(solarTime, dayOfTheYear, latLong.x);
+			moonDir = moonDirectionFromTime(jd, latLong.x, latLong.y);
+
+		}
+		else
+		{
+			sunDir = glm::vec3(glm::cos(glm::radians(sunAltAzi.x)) * glm::sin(glm::radians(sunAltAzi.y)),
+							 glm::sin(glm::radians(sunAltAzi.x)),
+							 glm::cos(glm::radians(sunAltAzi.x)) * glm::cos(glm::radians(sunAltAzi.y)));
+
+			if (fabs(sunDir.x) < 1e-12f) sunDir.x = 0.0f;
+			if (fabs(sunDir.y) < 1e-12f) sunDir.y = 0.0f;
+			if (fabs(sunDir.z) < 1e-12f) sunDir.z = 0.0f;
+
+			sunDir = glm::normalize(sunDir);
+
+			glm::vec3 moonDir = glm::vec3(glm::cos(glm::radians(moonAltAzi.x)) * glm::sin(glm::radians(moonAltAzi.y)),
+			glm::sin(glm::radians(moonAltAzi.x)),
+			glm::cos(glm::radians(moonAltAzi.x)) * glm::cos(glm::radians(moonAltAzi.y)));
+
+			if (fabs(moonDir.x) < 1e-12f) moonDir.x = 0.0f;
+			if (fabs(moonDir.y) < 1e-12f) moonDir.y = 0.0f;
+			if (fabs(moonDir.z) < 1e-12f) moonDir.z = 0.0f;
+
+			moonDir = glm::normalize(moonDir);
+
+		}
+
 
 		float ut = fmod(totalSimHours - latLong.y / 15.0f, 24.0f);
-		double jdStart = julianDay(21.0, 6, 2026);   
-		double jd = jdStart + totalSimHours / 24.0;
-
-		int day = date.x;
-		int month = date.y;
-		int year = date.z;
-		doyToDate(dayOfTheYear, date.z, day, month, year);
-
-
-
-
-		//std::cout << "Cam Direction: " << cam.direction.x << ", " << cam.direction.y << ", " << cam.direction.z << std::endl;
-		//std::cout << "X Offset: " << xOffset << ", " << "Y Offset: " << yOffset << std::endl;
-
 		glClearColor(0.53f, 0.0f, 0.42f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
 
-		float r = (6360e3 + 1.0f);
-		cam.position = glm::vec3(r * glm::cos(glm::radians(latLong.x)) * glm::sin(glm::radians(latLong.y)), r * glm::sin(glm::radians(latLong.x)), r * glm::cos(glm::radians(latLong.x)) * glm::cos(glm::radians(latLong.y)));
+		cam.position = glm::vec3(earthRad * glm::cos(glm::radians(latLong.x)) * glm::sin(glm::radians(latLong.y)), earthRad * glm::sin(glm::radians(latLong.x)), earthRad * glm::cos(glm::radians(latLong.x)) * glm::cos(glm::radians(latLong.y)));
 
-		const float eps = r * 5e-8f;
+		const float eps = earthRad * 5e-8f;
 		if (fabs(cam.position.x) < eps) cam.position.x = 0.0f;
 		if (fabs(cam.position.y) < eps) cam.position.y = 0.0f;
 		if (fabs(cam.position.z) < eps) cam.position.z = 0.0f;
@@ -396,65 +561,36 @@ int main()
 
 		if (abs(glm::dot(cam.direction, worldUp)) > 0.999f)
 		{
-			worldUp = glm::vec3(1.0f, 0.0f, 0.0f);
-			if (abs(glm::dot(cam.direction, worldUp)) > 0.999f)
-				worldUp = glm::vec3(0.0f, 0.0f, 1.0f);
+			worldUp = glm::vec3(0.0f, 0.0f, 1.0f);
+			// if (abs(glm::dot(cam.direction, worldUp)) > 0.999f)
+			// 	worldUp = glm::vec3(0.0f, 0.0f, 1.0f);
 		}
 
 		cam.up = worldUp;
-
-		glm::vec3 sunDir = glm::vec3(glm::cos(glm::radians(sunAltAzi.x)) * glm::sin(glm::radians(sunAltAzi.y)),
-		                             glm::sin(glm::radians(sunAltAzi.x)),
-		                             glm::cos(glm::radians(sunAltAzi.x)) * glm::cos(glm::radians(sunAltAzi.y)));
-
-		if (fabs(sunDir.x) < 1e-12f) sunDir.x = 0.0f;
-		if (fabs(sunDir.y) < 1e-12f) sunDir.y = 0.0f;
-		if (fabs(sunDir.z) < 1e-12f) sunDir.z = 0.0f;
-
-		sunDir = glm::normalize(sunDir);
-
-		sunDir = sunDirectionFromTime(solarTime, dayOfTheYear, latLong.x);
-
-		glm::vec3 moonDir = glm::vec3(glm::cos(glm::radians(moonAltAzi.x)) * glm::sin(glm::radians(moonAltAzi.y)),
-			glm::sin(glm::radians(moonAltAzi.x)),
-			glm::cos(glm::radians(moonAltAzi.x)) * glm::cos(glm::radians(moonAltAzi.y)));
-
-		if (fabs(moonDir.x) < 1e-12f) moonDir.x = 0.0f;
-		if (fabs(moonDir.y) < 1e-12f) moonDir.y = 0.0f;
-		if (fabs(moonDir.z) < 1e-12f) moonDir.z = 0.0f;
-
-		moonDir = glm::normalize(moonDir);
-
-
-		
-		date = glm::vec3(21, 6, 2026);
-
-		moonDir = moonDirectionFromTime(jd, latLong.x, latLong.y);
-
-		date.x = day;
-		date.y = month;
-		date.z = year;
 
 		baseShader.use();
 		baseShader.setUniformMat4("u_InvProjection", glm::inverse(cam.getProjectionMat()));
 		baseShader.setUniformMat4("u_InvView", glm::inverse(cam.getViewMat()));
 
-		baseShader.setUniformf("u_MoonIntensity", moonIntensity);
-
-		baseShader.setUniformi("u_LimbDarken", limbDarken);
-		baseShader.setUniformf("u_SunScale", sunScale);
-
+		baseShader.setUniformVec3("u_Observer", cam.position);
 		baseShader.setUniformVec3("u_SunDir", sunDir);
 		baseShader.setUniformVec3("u_MoonDir", moonDir);
-		baseShader.setUniformVec3("u_Observer", cam.position);
+		baseShader.setUniformf("u_Time", glfwGetTime());
+		baseShader.setUniformi("u_Clouds", clouds);
+
 		glBindVertexArray(vao);
 		glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(unsigned), GL_UNSIGNED_INT, nullptr);
+
+		frameCount++;
 
 		imguiRender();
 		glfwSwapBuffers(window);
 	}
 
 	glfwTerminate();
+	glDeleteBuffers(1, &vao);
+	glDeleteBuffers(1, &vbo);
+	glDeleteBuffers(1, &ebo);
 	return 0;
 }
 
@@ -519,16 +655,45 @@ void imguiUse()
 
 	ImGui::Begin("Sky");
 
-	ImGui::DragFloat("Anim Speed", &animSpeed, 0.05f);
+	ImGui::Text("Clouds: ");
+	ImGui::Checkbox("Visible", &clouds);
 
-	ImGui::Text("Observer Positioning: ");
+	if (!simulate)
+	{
+		if (ImGui::Button("Start Simulation", ImVec2(250.0, 30.0)))
+		{
+			simulate = true;
+			totalSimHours = 0.0;
+			solarTime = 0.0;
+			startDate = currentDate;
+			jdStart = julianDay(startDate.x, startDate.y, startDate.z);
+		}
+	}
+	else
+	{
+		if (ImGui::Button("Stop Simulation", ImVec2(250.0, 30.0)))
+		{
+			simulate = false;
+		}
+	}
+	ImGui::DragFloat("Simulation Speed", &animSpeed, 0.05f, 0.0f);
+
+	ImGui::Text("Observer Position: ");
 	ImGui::DragFloat("Latitude", &latLong.x, 0.1f, -90.0f, 90.0f);
 	ImGui::DragFloat("Longitude", &latLong.y, 0.1f, -180.0f, 180.0f);
 
 	ImGui::DragFloat("Solar Time", &solarTime, 0.1f, 0.0f, 24.0f);
 	ImGui::DragInt("Day", &dayOfTheYear);
 
-	ImGui::DragFloat3("Date", glm::value_ptr(date));
+	if (ImGui::InputInt3("Start Date", glm::value_ptr(startDate), ImGuiInputTextFlags_EnterReturnsTrue))
+	{
+	wrapDay(startDate.x, startDate.y, startDate.z);
+	}
+
+	ImGui::Text((std::format("Current Date: {}, {}, {}",  std::to_string(currentDate.x), std::to_string(currentDate.y), std::to_string(currentDate.z))).c_str());
+
+	ImGui::Checkbox("Use Ephemeris Positions", &useEphemerisPos);
+	if (simulate && !useEphemerisPos) useEphemerisPos = true;
 
 	ImGui::Text("Sun Positioning: ");
 	ImGui::DragFloat("Sun Altitude", &sunAltAzi.x, 1.0f, -90.0f, 90.0f);
@@ -538,11 +703,11 @@ void imguiUse()
 	ImGui::DragFloat("Moon Altitude", &moonAltAzi.x, 1.0f, -90.0f, 90.0f);
 	ImGui::DragFloat("Moon Azimuth", &moonAltAzi.y, 1.0f, 0.0f, 360.0f);
 
+
+
 	ImGui::DragFloat("Moon Intensity", &moonIntensity);
 	ImGui::DragFloat3("Observer Pos", glm::value_ptr(cam.position), 0.1f);
 	ImGui::DragFloat3("ViewingDir", glm::value_ptr(cam.direction), 0.1f);
-	ImGui::DragFloat("Sun Scale", &sunScale, 0.1f);
-	ImGui::Checkbox("Darken Limb", &limbDarken);
 
 	ImGui::End();
 }

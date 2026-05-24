@@ -104,7 +104,7 @@ Shader::Shader(const char* vertexFile, const char* fragmentFile, const char* geo
 
 std::optional<std::string> Shader::tryGetShaderSource(const char* fileName, ObjectType type)
 {
-	const std::string filePath = PathResolver::getPath(fileName);
+	const std::string filePath = PathResolver::getAbsolutePath(fileName);
 	if (!PathResolver::fileExists(filePath))
 	{
 		switch (type)
@@ -189,7 +189,7 @@ unsigned Shader::get() const
 
 void Shader::destroy()
 {
-	if (m_id != 0) glDeleteProgram(m_id);
+		if (m_id != 0) glDeleteProgram(m_id);
 }
 
 Shader::~Shader()

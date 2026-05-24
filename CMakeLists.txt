@@ -9,7 +9,7 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-project (procedural-sky LANGUAGES C CXX)
+project (physically-based-sky LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -39,6 +39,8 @@ set(GLAD_DIR ${LOCAL_DEPENDENCIES_DIR}/glad)
 
 set(GLM_DIR ${LOCAL_DEPENDENCIES_DIR}/glm)
 
+set (STB_DIR ${LOCAL_DEPENDENCIES_DIR}/stb)
+
 set(IMGUI_SOURCES
         ${imgui_SOURCE_DIR}/imgui.cpp
         ${imgui_SOURCE_DIR}/imgui_draw.cpp
@@ -52,6 +54,7 @@ set(ALL_DEPENDENCIES_DIRS
     ${LOCAL_DEPENDENCIES_DIR}
     ${GLAD_DIR}
     ${GLM_DIR}
+    ${STB_DIR}
     ${glfw_SOURCE_DIR}
     ${imgui_SOURCE_DIR}
     ${imgui_SOURCE_DIR}/backends)
@@ -64,13 +67,14 @@ set(ALL_DEPENDENCIES_DIRS
  set (PROJECT_SOURCES 
         src/main.cpp
         ${GLAD_DIR}/glad.c
+        ${STB_DIR}/stb.cpp
   "src/shader.cpp")
 # Add source to this project's executable.
-add_executable (procedural-sky ${PROJECT_SOURCES} ${PROJECT_HEADERS} ${IMGUI_SOURCES})
+add_executable (physically-based-sky ${PROJECT_SOURCES} ${PROJECT_HEADERS} ${IMGUI_SOURCES})
 
-target_include_directories(procedural-sky PRIVATE ${PROJECT_SOURCE_DIR} ${ALL_DEPENDENCIES_DIRS} includes)
+target_include_directories(physically-based-sky PRIVATE ${PROJECT_SOURCE_DIR} ${ALL_DEPENDENCIES_DIRS} includes)
 
-target_link_libraries(procedural-sky PRIVATE
+target_link_libraries(physically-based-sky PRIVATE
         glfw
         ${OPENGL_LIBRARIES}
 )
