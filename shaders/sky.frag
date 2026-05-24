@@ -398,7 +398,7 @@ vec4 marchClouds(vec3 rayOrigin, vec3 rayDir, vec3 sunDir, vec3 moonDir) {
     float tStart = tBounds.x;
     float tEnd = tBounds.y;
 
-    const int STEPS = 512;
+    const int STEPS = 384;
     float stepSize = (tEnd - tStart) / float(STEPS);
 
     float totalDist = tEnd - tStart;
