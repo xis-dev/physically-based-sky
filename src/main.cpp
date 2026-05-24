@@ -61,7 +61,6 @@ unsigned vao, vbo, ebo;
 
 int frameCount{};
 
-float moonIntensity{ 9999.0f };
 
 float animSpeed{ 2.0f };
 
@@ -76,7 +75,7 @@ glm::vec2 latLong{ 39.7f, 8.82f };
 glm::vec2 sunAltAzi{20.0f, 270.0f};
 glm::vec2 moonAltAzi{};
 
-bool simulate{};
+bool simulate{true};
 bool useEphemerisPos{};
 
 
@@ -687,7 +686,7 @@ void imguiUse()
 
 	if (ImGui::InputInt3("Start Date", glm::value_ptr(startDate), ImGuiInputTextFlags_EnterReturnsTrue))
 	{
-	wrapDay(startDate.x, startDate.y, startDate.z);
+		wrapDay(startDate.x, startDate.y, startDate.z);
 	}
 
 	ImGui::Text((std::format("Current Date: {}, {}, {}",  std::to_string(currentDate.x), std::to_string(currentDate.y), std::to_string(currentDate.z))).c_str());
@@ -695,19 +694,18 @@ void imguiUse()
 	ImGui::Checkbox("Use Ephemeris Positions", &useEphemerisPos);
 	if (simulate && !useEphemerisPos) useEphemerisPos = true;
 
-	ImGui::Text("Sun Positioning: ");
+	ImGui::Text("Sun Position: ");
 	ImGui::DragFloat("Sun Altitude", &sunAltAzi.x, 1.0f, -90.0f, 90.0f);
 	ImGui::DragFloat("Sun Azimuth", &sunAltAzi.y, 1.0f, 0.0f, 360.0f);
 
-	ImGui::Text("Moon Positioning: ");
+	ImGui::Text("Moon Position: ");
 	ImGui::DragFloat("Moon Altitude", &moonAltAzi.x, 1.0f, -90.0f, 90.0f);
 	ImGui::DragFloat("Moon Azimuth", &moonAltAzi.y, 1.0f, 0.0f, 360.0f);
 
 
 
-	ImGui::DragFloat("Moon Intensity", &moonIntensity);
 	ImGui::DragFloat3("Observer Pos", glm::value_ptr(cam.position), 0.1f);
-	ImGui::DragFloat3("ViewingDir", glm::value_ptr(cam.direction), 0.1f);
+	ImGui::DragFloat3("View Direction", glm::value_ptr(cam.direction), 0.1f);
 
 	ImGui::End();
 }

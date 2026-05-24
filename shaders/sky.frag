@@ -216,7 +216,7 @@ vec3 compute_luminance(vec3 out_atmosphere, vec3 sunDir, vec3 moonDir) {
         vec3 s = u_Observer + (i + 0.5) * ds;
         vec3 tr = computeTransmittance(u_Observer, s);
         // Accumulate lighting from moon, sun and sun as if it were at zenith but scaled down to serve as ambient lighting
-        acc += tr * (j_sun(s, direction, sunDir) + (j_moon(s, direction, moonDir, sunDir)) + (j_sun(s, direction, normalize(u_Observer))/5.0));
+        acc += tr * (j_sun(s, direction, sunDir) + (j_moon(s, direction, moonDir, sunDir)) + (j_sun(s, direction, normalize(u_Observer))/4.0));
     }
 
     return acc * length(ds);
@@ -488,6 +488,7 @@ void main(){
     vec3 view_out = u_Observer + viewDirection * distance_out;
 
     vec3 luminance = compute_luminance(view_out, u_SunDir, u_MoonDir);
+   // luminance += computeAmbience(u_SunDir, u_MoonDir);
     luminance += direct_light_from_sun(viewDirection, view_out, u_SunDir);
     luminance += direct_light_from_moon(viewDirection, view_out, u_MoonDir, brdf);
 
