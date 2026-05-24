@@ -540,7 +540,6 @@ int main()
 			if (fabs(moonDir.z) < 1e-12f) moonDir.z = 0.0f;
 
 			moonDir = glm::normalize(moonDir);
-
 		}
 
 
