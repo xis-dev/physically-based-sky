@@ -531,7 +531,7 @@ int main()
 
 			sunDir = glm::normalize(sunDir);
 
-			glm::vec3 moonDir = glm::vec3(glm::cos(glm::radians(moonAltAzi.x)) * glm::sin(glm::radians(moonAltAzi.y)),
+			moonDir = glm::vec3(glm::cos(glm::radians(moonAltAzi.x)) * glm::sin(glm::radians(moonAltAzi.y)),
 			glm::sin(glm::radians(moonAltAzi.x)),
 			glm::cos(glm::radians(moonAltAzi.x)) * glm::cos(glm::radians(moonAltAzi.y)));
 
