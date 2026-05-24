@@ -1,6 +1,7 @@
 # Real-time Physically Based Sky
 Real-time physically based atmosphere and celestial rendering with accurate ephemeris positions for the Sun and Moon.
 
+<img width="1599" height="896" alt="image" src="https://github.com/user-attachments/assets/dba6e55b-3211-4e70-98a8-81ae45e2b705" />
 
 ## Dependencies:
 GLAD
@@ -46,6 +47,9 @@ $$p(\theta) = \frac{1 - g^2}{4\pi(1 + g^2 - 2g\cos\theta)^{1.5}}$$
 - **Ozone absorption**: Ozone is a gas in the atmosphere, absorbing a lot of green and red wavelengths, contributing to the deeper blue of the upper sky. Follows the same 
 density falloff as **Rayleigh**.
 
+<img width="1919" height="1005" alt="image" src="https://github.com/user-attachments/assets/768c2d27-dfdd-434f-ab06-8e35049b6f22" />
+
+
 ---
 ### Sun & Moon Positions
 
@@ -63,16 +67,19 @@ Directions are converted to Cartesian for the fragment shader.
 ### Clouds
 
 Volumetric clouds are rendered via raymarching through a shell in the atmosphere between 4-6 km height. The density at each sample point is evaluated using FBM noise with a height gradient. Lighting accounts for atmospheric transmittance from the sample point to the sun and cloud shadowing by another light transmittance march towards the sun. Clouds follow a more stylized approach.
+<img width="1919" height="991" alt="image" src="https://github.com/user-attachments/assets/1dd4e238-edbb-416c-9cfe-85c66a28c1f8" />
 
 ---
 
 ### Sun
 
 Rendered as a disk of its luminance, limb darkening achieved through **Neckel**'s algorithm. Due to the limitations of the renderer, its ground-illuminance at zenith is given as $2\pi$.
+<img width="1919" height="1007" alt="image" src="https://github.com/user-attachments/assets/558dda13-68ad-4e25-80a9-a8541b611a6d" />
 
 ### Moon
 
 The moon uses the **Hapke–Lommel–Seeliger** reflectance model for its appearance and lack of limb darkening. Illuminance from the moon is derived from the **Lommel–Seeliger** law, accounting for the moon's phase angle, albedo, and distance.
+<img width="1601" height="892" alt="image" src="https://github.com/user-attachments/assets/b9cfb241-ea6c-49e2-a775-b2909906587f" />
 
 ---
 
