@@ -1,7 +1,8 @@
 # Real-time Physically Based Sky
 Real-time physically based atmosphere and celestial rendering with accurate ephemeris positions for the Sun and Moon.
 
-<img width="1599" height="896" alt="image" src="https://github.com/user-attachments/assets/dba6e55b-3211-4e70-98a8-81ae45e2b705" />
+<img width="1591" height="897" alt="image" src="https://github.com/user-attachments/assets/0a01652c-b6f7-4c13-8032-6ca865d03ce0" />
+
 
 ## Dependencies:
 GLAD
@@ -47,7 +48,9 @@ $$p(\theta) = \frac{1 - g^2}{4\pi(1 + g^2 - 2g\cos\theta)^{1.5}}$$
 - **Ozone absorption**: Ozone is a gas in the atmosphere, absorbing a lot of green and red wavelengths, contributing to the deeper blue of the upper sky. Follows the same 
 density falloff as **Rayleigh**.
 
-<img width="1919" height="1005" alt="image" src="https://github.com/user-attachments/assets/768c2d27-dfdd-434f-ab06-8e35049b6f22" />
+<img width="1594" height="893" alt="image" src="https://github.com/user-attachments/assets/412ef9f0-9bdc-4c75-9071-8d248dfce660" />
+
+
 
 
 ---
@@ -67,19 +70,22 @@ Directions are converted to Cartesian for the fragment shader.
 ### Clouds
 
 Volumetric clouds are rendered via raymarching through a shell in the atmosphere between 4-6 km height. The density at each sample point is evaluated using FBM noise with a height gradient. Lighting accounts for atmospheric transmittance from the sample point to the sun and cloud shadowing by another light transmittance march towards the sun. Clouds follow a more stylized approach.
-<img width="1919" height="991" alt="image" src="https://github.com/user-attachments/assets/1dd4e238-edbb-416c-9cfe-85c66a28c1f8" />
+
+<img width="1597" height="898" alt="image" src="https://github.com/user-attachments/assets/dfd7ad87-56ea-47a8-b2d5-2c4a1f599137" />
 
 ---
 
 ### Sun
 
 Rendered as a disk of its luminance, limb darkening achieved through **Neckel**'s algorithm. Due to the limitations of the renderer, its ground-illuminance at zenith is given as $2\pi$.
-<img width="1919" height="1007" alt="image" src="https://github.com/user-attachments/assets/558dda13-68ad-4e25-80a9-a8541b611a6d" />
+<img width="1593" height="901" alt="image" src="https://github.com/user-attachments/assets/65ab7c53-e34b-46ff-b9ca-00a9a7a14573" />
+
 
 ### Moon
 
 The moon uses the **Hapke–Lommel–Seeliger** reflectance model for its appearance and lack of limb darkening. Illuminance from the moon is derived from the **Lommel–Seeliger** law, accounting for the moon's phase angle, albedo, and distance.
-<img width="1601" height="892" alt="image" src="https://github.com/user-attachments/assets/b9cfb241-ea6c-49e2-a775-b2909906587f" />
+
+<img width="1592" height="900" alt="image" src="https://github.com/user-attachments/assets/bf9b37ef-932e-4754-a9fe-e60eb4d5c1c2" />
 
 ---
 
@@ -100,6 +106,8 @@ Jensen, H. W., Durand, F., Stark, M. M., Premoze, S., Dorsey, J., & Shirley, P. 
 Hillaire, S. (n.d.). Physically based sky, atmosphere and cloud rendering ... https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/s2016-pbs-frostbite-sky-clouds-new.pdf 
 
 Morrier, A. (2025, May 11). Sky and atmosphere rendering: A physical approach. CPP Rendering - Antoine MORRIER. https://cpp-rendering.io/sky-and-atmosphere-rendering/ 
+
+Hill, S. (n.d.). BakingLab/BakingLab/ACES.hlsl at master · TheRealMJP/bakinglab. GitHub. https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl  
 
 Neckel, H. On the wavelength dependency of solar limb darkening (λλ303 to 1099 nm). Sol Phys 167, 9–23 (1996). https://doi.org/10.1007/BF00146325
 
