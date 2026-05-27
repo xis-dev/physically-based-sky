@@ -498,8 +498,8 @@ int main()
 		double jd{};
 		if (simulate)
 		{
-			startDate = currentDate;
 			doyToDate(dayOfTheYear, currentDate.z, currentDate.x, currentDate.y, currentDate.z);
+			startDate = currentDate;
 			solarTime += animSpeed * deltaTime;
 			if (solarTime > 24.0f)
 			{
@@ -664,7 +664,7 @@ void imguiUse()
 			simulate = true;
 			totalSimHours = 0.0;
 			solarTime = 0.0;
-			startDate = currentDate;
+			currentDate = startDate;
 			jdStart = julianDay(startDate.x, startDate.y, startDate.z);
 		}
 	}
@@ -684,9 +684,15 @@ void imguiUse()
 	ImGui::DragFloat("Solar Time", &solarTime, 0.1f, 0.0f, 24.0f);
 	ImGui::DragInt("Day", &dayOfTheYear);
 
-	if (ImGui::InputInt3("Start Date", glm::value_ptr(startDate), ImGuiInputTextFlags_EnterReturnsTrue))
+	int tempStartDate[3] { startDate.x, startDate.y, startDate.z};
+	if (ImGui::InputInt3("Start Date", tempStartDate, ImGuiInputTextFlags_EnterReturnsTrue))
 	{
+		startDate = glm::vec<3, int>(tempStartDate[0], tempStartDate[1], tempStartDate[2]);
 		wrapDay(startDate.x, startDate.y, startDate.z);
+
+		currentDate = startDate;
+		dateToDoy(currentDate.x, currentDate.y, currentDate.z, dayOfTheYear);
+
 	}
 
 	ImGui::Text((std::format("Current Date: {}, {}, {}",  std::to_string(currentDate.x), std::to_string(currentDate.y), std::to_string(currentDate.z))).c_str());
