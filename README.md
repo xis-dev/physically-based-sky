@@ -107,6 +107,8 @@ Hillaire, S. (n.d.). Physically based sky, atmosphere and cloud rendering ... ht
 
 Morrier, A. (2025, May 11). Sky and atmosphere rendering: A physical approach. CPP Rendering - Antoine MORRIER. https://cpp-rendering.io/sky-and-atmosphere-rendering/ 
 
+Hill, S. (n.d.). BakingLab/BakingLab/ACES.hlsl at master · TheRealMJP/bakinglab. GitHub. https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl  
+
 Neckel, H. On the wavelength dependency of solar limb darkening (λλ303 to 1099 nm). Sol Phys 167, 9–23 (1996). https://doi.org/10.1007/BF00146325
 
 
