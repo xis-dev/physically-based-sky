@@ -463,7 +463,8 @@ int main()
 
 
 	cam.position = glm::vec3(0.0f, 6360e3 + 1, 0.0f);
-	cam.direction = glm::vec3(-1.0f, 0.0f, 0.0f);
+	// TODO: Camera direction with coord space
+	cam.direction = glm::vec3(1.0f, 0.0f, 0.0f);
 	cam.aspect = (float)SCR_WIDTH / SCR_HEIGHT;
 
 	Shader baseShader{ "shaders/base.vert", "shaders/sky.frag" };

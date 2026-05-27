@@ -32,7 +32,7 @@ const vec3 ozone = vec3(3.426, 8.298, 0.356) * 0.06 * 1e-5;
 const float radiusEarth = 6360e3;
 const float radiusAtmo = 6420e3;
 const float ZenithH = radiusAtmo - radiusEarth;
-const vec3 ZenithDir = vec3(0, 1, 0);
+const vec3 ZenithDir = normalize(u_Observer);
 float originH = length(u_Observer) - radiusEarth;
 
 // Cloud constant
@@ -141,9 +141,34 @@ vec3 TrZenith = exp(-(rayleigh * Hr * (exp(-originH / Hr) - exp(-ZenithH / Hr)) 
 mie * Hm * (exp(-originH / Hm) - exp(-ZenithH / Hm)) +
 ozone * Ho * (exp(-originH / Ho) - exp(-ZenithH / Ho))));
 
+vec3 ACESFitted(vec3 color)
+{
+    mat3 ACESInputMat = mat3(
+    0.59719, 0.35458, 0.04823,
+    0.07600, 0.90834, 0.01566,
+    0.02840, 0.13383, 0.83777
+    );
 
+    mat3 ACESOutputMat = mat3(
+    1.60475, -0.53108, -0.07367,
+    -0.10208,  1.10813, -0.00605,
+    -0.00327, -0.07276,  1.07602
+    );
 
-vec3 sunIlluminanceGround = vec3(2.0 * PI);
+    color = color * ACESInputMat;
+
+    vec3 a = color * (color + 0.0245786) - 0.000090537;
+    vec3 b = color * (0.983729 * color + 0.4329510) + 0.238081;
+    color = a / b;
+
+    color = color * ACESOutputMat;
+
+    color = clamp(color, 0.0, 1.0);
+
+    return color;
+}
+
+vec3 sunIlluminanceGround = vec3(2. * PI);
 vec3 L_outerspace = (sunIlluminanceGround / sun_solid_angle) / TrZenith;
 
 vec3 j_sun(vec3 position, vec3 view_dir, vec3 sunDir) {
@@ -176,11 +201,11 @@ vec3 j_moon(vec3 pos, vec3 view_dir, vec3 moonDir, vec3 sunDir) {
 
 
     float distOut = intersectRaySphereFromInside(pos, moonDir, radiusAtmo);
-    vec3 toMoonOutAtmos = pos + u_MoonDir * distOut;
+    vec3 toMoonOutAtmos = pos + moonDir * distOut;
 
 
-    vec3 rayleigh_diff = sigma_s_rayleigh(pos) * rayleigh_phase(view_dir, u_MoonDir);
-    vec3 mie_diff = sigma_s_mie(pos) * mie_phase(view_dir, u_MoonDir);
+    vec3 rayleigh_diff = sigma_s_rayleigh(pos) * rayleigh_phase(view_dir, moonDir);
+    vec3 mie_diff = sigma_s_mie(pos) * mie_phase(view_dir, moonDir);
 
     vec3 trToMoon = computeTransmittance(pos, toMoonOutAtmos);
 
@@ -216,10 +241,11 @@ vec3 compute_luminance(vec3 out_atmosphere, vec3 sunDir, vec3 moonDir) {
         vec3 s = u_Observer + (i + 0.5) * ds;
         vec3 tr = computeTransmittance(u_Observer, s);
         // Accumulate lighting from moon, sun and sun as if it were at zenith but scaled down to serve as ambient lighting
-        acc += tr * (j_sun(s, direction, sunDir) + (j_moon(s, direction, moonDir, sunDir)) + (j_sun(s, direction, normalize(u_Observer))/4.0));
+        acc += tr * (j_sun(s, direction, sunDir) + j_moon(s, direction, moonDir, sunDir) + j_sun(s, direction, ZenithDir) / 7.0 );
+
     }
 
-    return acc * length(ds);
+    return acc * length(ds) ;
 }
 
 vec3 direct_light_from_sun(vec3 direction, vec3 out_atmosphere, vec3 sunDir) {
@@ -294,6 +320,16 @@ vec3 direct_light_from_moon(vec3 direction, vec3 out_atmosphere, vec3 sunDir, ve
 
     return disk * vec3(0.07, 0.065, 0.06) * brdf * L_outerspace * computeTransmittance(u_Observer, out_atmosphere);
 
+}
+
+vec3 ACESFilm(vec3 x)
+{
+    float a = 2.51f;
+    float b = 0.03f;
+    float c = 2.43f;
+    float d = 0.59f;
+    float e = 0.14f;
+    return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.0, 1.0);
 }
 
 float hash(vec3 p) {
@@ -502,7 +538,8 @@ void main(){
     }
 
     // tone mapping
-    result = result / (1.0 + result);
+    result = ACESFitted(result);
+    result = pow(result, vec3(1./2.2));
     fragColor = vec4(result, 1.0);
 
 }
