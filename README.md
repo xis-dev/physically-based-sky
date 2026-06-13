@@ -59,11 +59,28 @@ density falloff as **Rayleigh**.
 - **Coordinate System**: Both celestial bodies are positioned in spherical/horizontal coordinates (altitude and azimuth) derived from the observer's latitude, longitude, and the current Julian Day.
 Directions are converted to Cartesian for the fragment shader.
 
+$$D = \cos(alt) \sin(az), \sin(alt), \cos(alt) \cos(az)$$
+
 - **Time Of Day**: Due to the nature of the project, the time of the day is solely computed in solar time for the sun and Julian Day + time elapsed for the moon.
+
+$$T = JD + simulationTime$$
 
 - **Sun**: Its altitude and azimuth are gotten from the hour angle and solar declination using **Spencer**'s formula.
 
+$$\eta = \frac{2\pi(d-1)}{365}$$
+
+$$\delta = \frac{180}{\pi}\left[0.006918 - 0.399912 \cos \eta + 0.070257 \sin \eta - 0.006758 \cos 2\eta + 0.000907 \sin 2\eta - 0.002697 \cos 3\eta + 0.00148 \sin 3\eta\right]$$
+
+$$h = 15(T - 12)$$
+
+$$lat = Observer Latitude$$
+
+$$alt = \arcsin(\sin(lat) \sin \delta + \cos(lat) \cos \delta \cos h)$$
+$$az = atan2(\sin h, \sin(lat) \cos h - \tan \delta \cos(lat))$$
+
 - **Moon**: Follows a more complex method due to orbital perturbations such as eccentricity and node regression. Its position derived from **Meeus**' algorithm, computing the moon's ecliptic longitude and latitude, converting to equatorial coordinates (right ascension and declination), and then to local horizontal coordinates.
+
+
 
 ---
 
